@@ -89,6 +89,12 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Middleware to allow embedding only on your Google Site
+app.use((req, res, next) => {
+    res.setHeader("Content-Security-Policy", "frame-ancestors 'self' https://sites.google.com/hoboken.k12.nj.us/g0odgam3siteforsch0ol-unbl0ck/");
+    next();
+});
+
 /* if (process.env.MASQR === "true") {
   console.log(chalk.green("Masqr is enabled"));
   setupMasqr(app);
