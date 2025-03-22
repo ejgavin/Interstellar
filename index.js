@@ -23,17 +23,15 @@ const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
 if (config.challenge !== false) {
-  console.log(
-    chalk.green("🔒 Password protection is enabled! Listing logins below"),
-  );
+  console.log(chalk.green("🔒 Password protection is enabled! Listing logins below"));
   Object.entries(config.users).forEach(([username, password]) => {
-    console.log(chalk.blue(Username: ${username}, Password: ${password}));
+    console.log(chalk.blue(`Username: ${username}, Password: ${password}`));
   });
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
 
 app.use((req, res, next) => {
-  res.setHeader('Permissions-Policy', 'geolocation=(self), microphone=()');
+  res.setHeader("Permissions-Policy", "geolocation=(self), microphone=()");
   next();
 });
 
@@ -54,14 +52,14 @@ const routes = [
   { path: "/", file: "index.html" },
 ];
 
-routes.forEach(route => {
+routes.forEach((route) => {
   app.get(route.path, (_req, res) => {
     res.sendFile(path.join(__dirname, "static", route.file));
   });
 });
 
 app.use((req, res, next) => {
-  console.log(404: ${req.originalUrl});
+  console.log(`404: ${req.originalUrl}`);
   res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
@@ -107,7 +105,7 @@ app.get("/e/*", async (req, res, next) => {
 
     const asset = await fetch(reqTarget);
     if (!asset.ok) {
-      console.error(Failed to fetch asset: ${reqTarget});
+      console.error(`Failed to fetch asset: ${reqTarget}`);
       return next();
     }
 
@@ -145,7 +143,7 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.on("listening", () => {
-  console.log(chalk.green(🌍 Server is running on http://localhost:${PORT}));
+  console.log(chalk.green(`🌍 Server is running on http://localhost:${PORT}`));
 });
 
 server.listen({ port: PORT });
