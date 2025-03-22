@@ -22,19 +22,23 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
-// Log all incoming requests
+// Check the Referer header to ensure the request is coming from Google Sites
 app.use((req, res, next) => {
-  const referer = req.get("Referer") || "No Referer";
-  const origin = req.get("Origin") || "No Origin";
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  console.log(`   ↳ Referer: ${referer}`);
-  console.log(`   ↳ Origin: ${origin}`);
-  next();
+  const referer = req.get('Referer');
+  const allowedReferer = 'https://sites.google.com/hoboken.k12.nj.us/g0odgam3siteforsch0ol-unbl0ck/'; // Your Google Sites URL
+  
+  if (referer && referer.startsWith(allowedReferer)) {
+    next(); // Allow the request if the referer is from Google Sites
+  } else {
+    res.status(403).send('Access Denied'); // Deny access if the referer is not allowed
+  }
 });
 
-// Authentication if enabled
 if (config.challenge !== false) {
-  console.log(chalk.green("🔒 Password protection enabled"));
+  console.log(chalk.green("🔒 Password protection is enabled! Listing logins below"));
+  Object.entries(config.users).forEach(([username, password]) => {
+    console.log(chalk.blue(`Username: ${username}, Password: ${password}`));
+  });
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
 
@@ -47,7 +51,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files
+// Handle static files and routes
 app.use(express.static(path.join(__dirname, "static")));
 app.use("/fq", cors({ origin: true }));
 
@@ -61,29 +65,26 @@ const routes = [
 ];
 
 routes.forEach((route) => {
-  app.get(route.path, (req, res) => {
-    console.log(`📄 Serving page: ${route.file}`);
+  app.get(route.path, (_req, res) => {
     res.sendFile(path.join(__dirname, "static", route.file));
   });
 });
 
-// Handle 404 errors
-app.use((req, res) => {
-  console.log(chalk.yellow(`⚠️ 404 Not Found: ${req.originalUrl}`));
+app.use((req, res, next) => {
+  console.log(`404: ${req.originalUrl}`);
   res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
-// Handle errors
 app.use((err, req, res, next) => {
-  console.error(chalk.red("❌ Error: "), err.stack);
+  console.error(err.stack);
   res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
-// Proxy and caching for /e/* assets
+// Handle /e/* route with caching and proxying
 app.get("/e/*", async (req, res, next) => {
   try {
     if (cache.size > MAX_CACHE_SIZE) {
-      cache.clear(); // Clear cache if it’s too big
+      cache.clear(); // Clear cache if it's too big
     }
 
     if (cache.has(req.path)) {
@@ -91,7 +92,6 @@ app.get("/e/*", async (req, res, next) => {
       if (Date.now() - timestamp > CACHE_TTL) {
         cache.delete(req.path);
       } else {
-        console.log(`✅ Cache hit: ${req.path}`);
         res.writeHead(200, { "Content-Type": contentType });
         return res.end(data);
       }
@@ -115,14 +115,13 @@ app.get("/e/*", async (req, res, next) => {
       return next();
     }
 
-    console.log(`🔄 Fetching asset: ${reqTarget}`);
     const asset = await fetch(reqTarget, {
-      method: req.method,
-      headers: req.headers,
+      method: req.method, // Preserve the method (GET, POST, etc.)
+      headers: req.headers, // Forward all headers from the incoming request to the target server
     });
 
     if (!asset.ok) {
-      console.error(`❌ Failed to fetch asset: ${reqTarget}`);
+      console.error(`Failed to fetch asset: ${reqTarget}`);
       return next();
     }
 
@@ -134,16 +133,14 @@ app.get("/e/*", async (req, res, next) => {
     res.writeHead(200, { "Content-Type": contentType });
     res.end(data);
   } catch (error) {
-    console.error("❌ Error fetching asset:", error);
+    console.error("Error fetching asset:", error);
     res.setHeader("Content-Type", "text/html");
     res.status(500).send("Error fetching the asset");
   }
 });
 
-// Handle Bare server requests
 server.on("request", (req, res) => {
   if (bareServer.shouldRoute(req)) {
-    console.log(`🛰️ Routing Bare server request: ${req.url}`);
     bareServer.routeRequest(req, res);
   } else {
     app(req, res);
@@ -152,7 +149,6 @@ server.on("request", (req, res) => {
 
 server.on("upgrade", (req, socket, head) => {
   if (bareServer.shouldRoute(req)) {
-    console.log(`🛰️ WebSocket Upgrade: ${req.url}`);
     bareServer.routeUpgrade(req, socket, head);
   } else {
     socket.end();
