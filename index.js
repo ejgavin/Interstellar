@@ -20,63 +20,42 @@ const bareServer = createBareServer("/fq/");
 const PORT = process.env.PORT || 8080;
 const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
-const MAX_CACHE_SIZE = 100;
 
 if (config.challenge !== false) {
   console.log(
     chalk.green("🔒 Password protection is enabled! Listing logins below"),
   );
+  // biome-ignore lint/complexity/noForEach:
   Object.entries(config.users).forEach(([username, password]) => {
     console.log(chalk.blue(`Username: ${username}, Password: ${password}`));
   });
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
 
+// Middleware to filter by IP and allow iframe embeds from Google Sites
 app.use((req, res, next) => {
-  res.setHeader('Permissions-Policy', 'geolocation=(self), microphone=()');
-  next();
+  const allowedIp = "100.8.18.37";
+  const googleSiteReferer = "https://sites.google.com/hoboken.k12.nj.us/g0odgam3siteforsch0ol-unbl0ck/";
+
+  // Check if the request is from the allowed IP
+  const requesterIp = req.connection.remoteAddress || req.headers['x-forwarded-for'];
+  const isAllowedIp = requesterIp === allowedIp;
+
+  // Check if the request is coming from the Google Site via an iframe
+  const referer = req.headers.referer;
+  const isIframeFromGoogleSite = referer && referer.startsWith(googleSiteReferer);
+
+  // Allow access if the IP matches or the request is from an iframe embedded from Google Sites
+  if (isAllowedIp || isIframeFromGoogleSite) {
+    return next(); // Allow the request to continue
+  }
+
+  // Otherwise, deny access
+  res.status(403).send("Forbidden: Access is restricted");
 });
 
-app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Handle static files and routes
-app.use(express.static(path.join(__dirname, "static")));
-app.use("/fq", cors({ origin: true }));
-
-const routes = [
-  { path: "/yz", file: "apps.html" },
-  { path: "/up", file: "games.html" },
-  { path: "/play.html", file: "games.html" },
-  { path: "/vk", file: "settings.html" },
-  { path: "/rx", file: "tabs.html" },
-  { path: "/", file: "index.html" },
-];
-
-routes.forEach(route => {
-  app.get(route.path, (_req, res) => {
-    res.sendFile(path.join(__dirname, "static", route.file));
-  });
-});
-
-app.use((req, res, next) => {
-  console.log(`404: ${req.originalUrl}`);
-  res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
-});
-
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
-});
-
-// Handle /e/* route with caching and proxying
 app.get("/e/*", async (req, res, next) => {
   try {
-    if (cache.size > MAX_CACHE_SIZE) {
-      cache.clear(); // Clear cache if it's too big
-    }
-
     if (cache.has(req.path)) {
       const { data, contentType, timestamp } = cache.get(req.path);
       if (Date.now() - timestamp > CACHE_TTL) {
@@ -107,7 +86,6 @@ app.get("/e/*", async (req, res, next) => {
 
     const asset = await fetch(reqTarget);
     if (!asset.ok) {
-      console.error(`Failed to fetch asset: ${reqTarget}`);
       return next();
     }
 
@@ -126,6 +104,43 @@ app.get("/e/*", async (req, res, next) => {
     res.setHeader("Content-Type", "text/html");
     res.status(500).send("Error fetching the asset");
   }
+});
+
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/* if (process.env.MASQR === "true") {
+  console.log(chalk.green("Masqr is enabled"));
+  setupMasqr(app);
+} */
+
+app.use(express.static(path.join(__dirname, "static")));
+app.use("/fq", cors({ origin: true }));
+
+const routes = [
+  { path: "/yz", file: "apps.html" },
+  { path: "/up", file: "games.html" },
+  { path: "/play.html", file: "games.html" },
+  { path: "/vk", file: "settings.html" },
+  { path: "/rx", file: "tabs.html" },
+  { path: "/", file: "index.html" },
+];
+
+// biome-ignore lint/complexity/noForEach:
+routes.forEach(route => {
+  app.get(route.path, (_req, res) => {
+    res.sendFile(path.join(__dirname, "static", route.file));
+  });
+});
+
+app.use((req, res, next) => {
+  res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
 server.on("request", (req, res) => {
