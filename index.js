@@ -22,9 +22,10 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
-// Log all incoming requests
+// Log all incoming requests with their origin
 app.use((req, res, next) => {
-  const logMessage = `${req.method} ${req.originalUrl} - ${new Date().toISOString()}`;
+  const origin = req.get('Origin') || 'No Origin'; // Get the origin header if present
+  const logMessage = `${req.method} ${req.originalUrl} - ${new Date().toISOString()} - Origin: ${origin}`;
   console.log(logMessage);
   next(); // Continue to the next middleware or route handler
 });
