@@ -22,6 +22,13 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
+// Log all incoming requests
+app.use((req, res, next) => {
+  const logMessage = `${req.method} ${req.originalUrl} - ${new Date().toISOString()}`;
+  console.log(logMessage);
+  next(); // Continue to the next middleware or route handler
+});
+
 if (config.challenge !== false) {
   console.log(chalk.green("🔒 Password protection is enabled! Listing logins below"));
   Object.entries(config.users).forEach(([username, password]) => {
