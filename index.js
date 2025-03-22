@@ -22,15 +22,16 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
-// Log all incoming requests with their origin, referer, and other useful headers
+// Log all incoming requests with their origin
 app.use((req, res, next) => {
-  const ip = req.ip || req.connection.remoteAddress || 'No IP'; // Get the IP address
-  const origin = req.get('Origin') || 'No Origin'; // Fallback to Origin if available
-  const referer = req.get('Referer') || 'No Referer'; // Fallback to Referer if available
-  const userAgent = req.get('User-Agent') || 'No User-Agent'; // Get the User-Agent header
+  const referer = req.get('Referer') || 'No Referer';
+  const origin = req.get('Origin') || 'No Origin';
+  const forwardedFor = req.get('X-Forwarded-For') || 'No X-Forwarded-For';
+  const forwardedHost = req.get('X-Forwarded-Host') || 'No X-Forwarded-Host';
+  const forwardedProto = req.get('X-Forwarded-Proto') || 'http';
 
-  const logMessage = `${req.method} ${req.originalUrl} - ${new Date().toISOString()} - IP: ${ip} - Origin: ${origin} - Referer: ${referer} - User-Agent: ${userAgent}`;
-  console.log(logMessage); // Log the request
+  const logMessage = `${req.method} ${req.originalUrl} - ${new Date().toISOString()} - Origin: ${origin} - Referer: ${referer} - Forwarded For: ${forwardedFor} - Forwarded Host: ${forwardedHost} - Forwarded Proto: ${forwardedProto}`;
+  console.log(logMessage);
 
   next(); // Continue to the next middleware or route handler
 });
