@@ -119,7 +119,7 @@ app.get("/e/*", async (req, res, next) => {
 });
 
 // Handle iframe requests with query key
-const VALID_KEYS = new Set(["your-secret-key"]); // Replace with actual keys
+const VALID_KEYS = new Set(["validitiy"]); // Replace with actual keys
 
 app.get("/fq", (req, res) => {
   const key = req.query.key;
