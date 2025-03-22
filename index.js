@@ -41,6 +41,19 @@ app.use((req, res, next) => {
   next();
 });
 
+// Detect injected iframes and external scripts
+app.use((req, res, next) => {
+  if (req.get("sec-fetch-dest") === "iframe") {
+    console.log(chalk.red(`🚨 Detected iframe embed: ${req.originalUrl}`));
+  }
+
+  if (req.get("referer") && !req.get("referer").includes(ALLOWED_REFERER)) {
+    console.log(chalk.red(`🚨 Possible external script detected: ${req.get("referer")}`));
+  }
+
+  next();
+});
+
 // Authentication if enabled
 if (config.challenge !== false) {
   console.log(chalk.green("🔒 Password protection enabled"));
