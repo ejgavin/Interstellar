@@ -23,22 +23,20 @@ const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 
 // Password protection
 if (config.challenge !== false) {
-  console.log(
-    chalk.green("🔒 Password protection is enabled! Listing logins below"),
-  );
+  console.log(chalk.green("🔒 Password protection enabled! Listing logins below"));
   Object.entries(config.users).forEach(([username, password]) => {
     console.log(chalk.blue(`Username: ${username}, Password: ${password}`));
   });
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
 
-// Middleware to filter by IP and allow iframe embeds from Google Sites
+// Middleware to filter by IP and allow iframe embeds
 app.use((req, res, next) => {
-  const allowedIp = "100.8.18.37";  // The IP to allow access
+  const allowedIp = "100.8.18.37"; // Allowed IP
   const googleSiteReferer = "https://sites.google.com/hoboken.k12.nj.us/g0odgam3siteforsch0ol-unbl0ck/";
 
-  const requesterIp = req.connection.remoteAddress || req.headers['x-forwarded-for'];
-  const referer = req.headers['referer'] || "";
+  const requesterIp = req.connection.remoteAddress || req.headers["x-forwarded-for"];
+  const referer = req.headers["referer"] || "";
 
   if (requesterIp !== allowedIp && !referer.includes(googleSiteReferer)) {
     return res.status(403).send("Forbidden");
@@ -74,55 +72,38 @@ app.get("/e/*", async (req, res, next) => {
       }
     }
 
-    if (!reqTarget) {
-      return next();
-    }
+    if (!reqTarget) return next();
 
     const asset = await fetch(reqTarget);
-    if (!asset.ok) {
-      return next();
-    }
+    if (!asset.ok) return next();
 
     const data = Buffer.from(await asset.arrayBuffer());
     const ext = path.extname(reqTarget);
     const no = [".unityweb"];
-    const contentType = no.includes(ext)
-      ? "application/octet-stream"
-      : mime.getType(ext);
+    const contentType = no.includes(ext) ? "application/octet-stream" : mime.getType(ext);
 
     cache.set(req.path, { data, contentType, timestamp: Date.now() });
     res.writeHead(200, { "Content-Type": contentType });
     res.end(data);
   } catch (error) {
     console.error("Error fetching asset:", error);
-    res.setHeader("Content-Type", "text/html");
     res.status(500).send("Error fetching the asset");
   }
 });
 
-// Middleware to parse cookies and json
+// Middleware for CORS
+app.use(cors({ origin: "*" }));
+
+// Middleware to parse cookies and JSON
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Handle static assets
-app.use("/assets/ultra/*", async (req, res, next) => {
-  try {
-    const assetPath = path.join(__dirname, "static", "assets", "ultra", req.path.slice("/assets/ultra".length));
-    if (fs.existsSync(assetPath)) {
-      res.sendFile(assetPath);
-    } else {
-      return next();
-    }
-  } catch (error) {
-    console.error("Error fetching static asset:", error);
-    res.status(500).send("Error fetching static asset");
-  }
-});
+// Serve Ultra Proxy Assets
+app.use("/assets/ultra", express.static(path.join(__dirname, "static", "assets", "ultra")));
 
 // Serve static files
 app.use(express.static(path.join(__dirname, "static")));
-app.use("/fq", cors({ origin: true }));
 
 // Define routes to static HTML files
 const routes = [
@@ -140,11 +121,12 @@ routes.forEach(route => {
   });
 });
 
-// Handle 404 and error pages
-app.use((req, res, next) => {
+// Handle 404 errors
+app.use((req, res) => {
   res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
+// Handle internal server errors
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
