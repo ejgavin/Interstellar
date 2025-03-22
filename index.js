@@ -27,7 +27,7 @@ if (config.challenge !== false) {
     chalk.green("🔒 Password protection is enabled! Listing logins below"),
   );
   Object.entries(config.users).forEach(([username, password]) => {
-    console.log(chalk.blue(Username: ${username}, Password: ${password}));
+    console.log(chalk.blue(`Username: ${username}, Password: ${password}`));
   });
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
@@ -61,7 +61,7 @@ routes.forEach(route => {
 });
 
 app.use((req, res, next) => {
-  console.log(404: ${req.originalUrl});
+  console.log(`404: ${req.originalUrl}`);
   res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
@@ -102,29 +102,29 @@ app.get("/e/*", async (req, res, next) => {
     }
 
     if (!reqTarget) {
-      return next();
+      console.warn(`🚨 Blocked request: ${req.originalUrl}`);
+      return res.status(403).send("Blocked request.");
     }
 
     const asset = await fetch(reqTarget);
     if (!asset.ok) {
-      console.error(Failed to fetch asset: ${reqTarget});
-      return next();
+      console.error(`❌ Failed to fetch asset: ${reqTarget}`);
+      return res.status(500).send("Error fetching the asset.");
     }
 
     const data = Buffer.from(await asset.arrayBuffer());
     const ext = path.extname(reqTarget);
-    const no = [".unityweb"];
-    const contentType = no.includes(ext)
-      ? "application/octet-stream"
-      : mime.getType(ext);
+    const allowedExtensions = [".js", ".css", ".html", ".png", ".jpg", ".svg", ".json", ".woff2", ".ttf", ".mp4"];
+
+    // Fixing MIME type handling
+    const contentType = allowedExtensions.includes(ext) ? mime.getType(ext) || "application/octet-stream" : "application/octet-stream";
 
     cache.set(req.path, { data, contentType, timestamp: Date.now() });
     res.writeHead(200, { "Content-Type": contentType });
     res.end(data);
   } catch (error) {
-    console.error("Error fetching asset:", error);
-    res.setHeader("Content-Type", "text/html");
-    res.status(500).send("Error fetching the asset");
+    console.error("🔥 Error fetching asset:", error);
+    res.status(500).send("Error fetching the asset.");
   }
 });
 
@@ -145,7 +145,7 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.on("listening", () => {
-  console.log(chalk.green(🌍 Server is running on http://localhost:${PORT}));
+  console.log(chalk.green(`🌍 Server is running on http://localhost:${PORT}`));
 });
 
 server.listen({ port: PORT });
