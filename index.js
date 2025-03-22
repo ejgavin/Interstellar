@@ -20,10 +20,11 @@ const bareServer = createBareServer("/fq/");
 const PORT = process.env.PORT || 8080;
 const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
+const MAX_CACHE_SIZE = 100;
 
 if (config.challenge !== false) {
   console.log(
-    chalk.green("🔒 Password protection is enabled! Listing logins below")
+    chalk.green("🔒 Password protection is enabled! Listing logins below"),
   );
   Object.entries(config.users).forEach(([username, password]) => {
     console.log(chalk.blue(`Username: ${username}, Password: ${password}`));
@@ -31,25 +32,51 @@ if (config.challenge !== false) {
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
 
-// Middleware to allow embedding only on your Google Site or for specific IP address (100.8.18.37)
 app.use((req, res, next) => {
-  const allowedOrigin = "https://sites.google.com/hoboken.k12.nj.us";
-  const referrer = req.get("Referer") || "";
-
-  // Allow the specific IP address (100.8.18.37) to bypass the iframe restriction
-  const allowedIp = "100.8.18.37";
-  const clientIp = req.ip;
-
-  // Check if the client IP is the allowed IP or if the request comes from the allowed Google site
-  if (clientIp === allowedIp || referrer.startsWith(allowedOrigin)) {
-    next(); // Allow request to proceed
-  } else {
-    return res.status(403).send("Access Denied");
-  }
+  res.setHeader('Permissions-Policy', 'geolocation=(self), microphone=()');
+  next();
 });
 
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Handle static files and routes
+app.use(express.static(path.join(__dirname, "static")));
+app.use("/fq", cors({ origin: true }));
+
+const routes = [
+  { path: "/yz", file: "apps.html" },
+  { path: "/up", file: "games.html" },
+  { path: "/play.html", file: "games.html" },
+  { path: "/vk", file: "settings.html" },
+  { path: "/rx", file: "tabs.html" },
+  { path: "/", file: "index.html" },
+];
+
+routes.forEach(route => {
+  app.get(route.path, (_req, res) => {
+    res.sendFile(path.join(__dirname, "static", route.file));
+  });
+});
+
+app.use((req, res, next) => {
+  console.log(`404: ${req.originalUrl}`);
+  res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
+});
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
+});
+
+// Handle /e/* route with caching and proxying
 app.get("/e/*", async (req, res, next) => {
   try {
+    if (cache.size > MAX_CACHE_SIZE) {
+      cache.clear(); // Clear cache if it's too big
+    }
+
     if (cache.has(req.path)) {
       const { data, contentType, timestamp } = cache.get(req.path);
       if (Date.now() - timestamp > CACHE_TTL) {
@@ -80,6 +107,7 @@ app.get("/e/*", async (req, res, next) => {
 
     const asset = await fetch(reqTarget);
     if (!asset.ok) {
+      console.error(`Failed to fetch asset: ${reqTarget}`);
       return next();
     }
 
@@ -98,67 +126,6 @@ app.get("/e/*", async (req, res, next) => {
     res.setHeader("Content-Type", "text/html");
     res.status(500).send("Error fetching the asset");
   }
-});
-
-app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-const blocked = Object.keys(config.blocked);
-
-app.get("/assets/js/m.js", (req, res) => {
-  const hostname = req.hostname;
-
-  const isBlocked = blocked.some((domain) => {
-    if (hostname === domain) return true;
-    return hostname.endsWith(`.${domain}`);
-  });
-
-  const main = path.join(__dirname, "static/assets/js/m.js");
-
-  try {
-    if (isBlocked) {
-      fs.readFile(main, "utf8", (err, data) => {
-        if (err) {
-          console.error("Error reading the file:", err);
-          return res.status(500).send("Something went wrong.");
-        }
-        const script = data.split("\n").slice(9).join("\n");
-        res.type("application/javascript").send(script);
-      });
-    } else {
-      res.sendFile(main);
-    }
-  } catch (error) {
-    console.error("There was an error processing the script:", error);
-    res.status(500).send("Something went wrong.");
-  }
-});
-
-app.use(express.static(path.join(__dirname, "static")));
-app.use("/fq", cors({ origin: true }));
-
-const routes = [
-  { path: "/yz", file: "apps.html" },
-  { path: "/up", file: "games.html" },
-  { path: "/vk", file: "settings.html" },
-  { path: "/rx", file: "tabs.html" },
-  { path: "/", file: "index.html" },
-];
-
-routes.forEach((route) => {
-  app.get(route.path, (_req, res) => {
-    res.sendFile(path.join(__dirname, "static", route.file));
-  });
-});
-
-app.use((req, res, next) => {
-  res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
-});
-
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
 server.on("request", (req, res) => {
