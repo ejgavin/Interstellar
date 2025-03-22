@@ -22,18 +22,34 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
+const ALLOWED_ORIGIN = "https://ejgavin.github.io";
+const VALID_API_KEYS = new Set(config.apiKeys || []); // Store valid API keys
+
+// 🔒 Enable Basic Auth if configured
 if (config.challenge !== false) {
-  console.log(
-    chalk.green("🔒 Password protection is enabled! Listing logins below"),
-  );
+  console.log(chalk.green("🔒 Password protection is enabled!"));
   Object.entries(config.users).forEach(([username, password]) => {
     console.log(chalk.blue(`Username: ${username}, Password: ${password}`));
   });
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
 
+// 🔒 Middleware to enforce origin restrictions & API key authentication
 app.use((req, res, next) => {
-  res.setHeader('Permissions-Policy', 'geolocation=(self), microphone=()');
+  const origin = req.headers.origin || req.headers.referer || "";
+  const apiKey = req.headers["x-api-key"]; // Check for API key in headers
+
+  if (!origin.startsWith(ALLOWED_ORIGIN) && !VALID_API_KEYS.has(apiKey)) {
+    console.log(`⛔ Blocked request from: ${origin}`);
+    return res.status(403).send("Access Denied");
+  }
+
+  next();
+});
+
+// 🔒 Security headers
+app.use((req, res, next) => {
+  res.setHeader("Permissions-Policy", "geolocation=(self), microphone=()");
   next();
 });
 
@@ -41,7 +57,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Handle static files and routes
+// Serve static files
 app.use(express.static(path.join(__dirname, "static")));
 app.use("/fq", cors({ origin: true }));
 
@@ -60,30 +76,30 @@ routes.forEach(route => {
   });
 });
 
+// 404 handler
 app.use((req, res, next) => {
   console.log(`404: ${req.originalUrl}`);
   res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
+// 500 handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
-// Handle /e/* route with caching and proxying
+// 🔄 Caching and Proxy for /e/* routes
 app.get("/e/*", async (req, res, next) => {
   try {
-    if (cache.size > MAX_CACHE_SIZE) {
-      cache.clear(); // Clear cache if it's too big
-    }
+    if (cache.size > MAX_CACHE_SIZE) cache.clear();
 
     if (cache.has(req.path)) {
       const { data, contentType, timestamp } = cache.get(req.path);
-      if (Date.now() - timestamp > CACHE_TTL) {
-        cache.delete(req.path);
-      } else {
+      if (Date.now() - timestamp < CACHE_TTL) {
         res.writeHead(200, { "Content-Type": contentType });
         return res.end(data);
+      } else {
+        cache.delete(req.path);
       }
     }
 
@@ -101,9 +117,7 @@ app.get("/e/*", async (req, res, next) => {
       }
     }
 
-    if (!reqTarget) {
-      return next();
-    }
+    if (!reqTarget) return next();
 
     const asset = await fetch(reqTarget);
     if (!asset.ok) {
@@ -113,21 +127,18 @@ app.get("/e/*", async (req, res, next) => {
 
     const data = Buffer.from(await asset.arrayBuffer());
     const ext = path.extname(reqTarget);
-    const no = [".unityweb"];
-    const contentType = no.includes(ext)
-      ? "application/octet-stream"
-      : mime.getType(ext);
+    const contentType = [".unityweb"].includes(ext) ? "application/octet-stream" : mime.getType(ext);
 
     cache.set(req.path, { data, contentType, timestamp: Date.now() });
     res.writeHead(200, { "Content-Type": contentType });
     res.end(data);
   } catch (error) {
     console.error("Error fetching asset:", error);
-    res.setHeader("Content-Type", "text/html");
     res.status(500).send("Error fetching the asset");
   }
 });
 
+// Bare server handling
 server.on("request", (req, res) => {
   if (bareServer.shouldRoute(req)) {
     bareServer.routeRequest(req, res);
