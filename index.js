@@ -22,12 +22,16 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
-// Log all incoming requests with their origin
+// Check the Referer header to ensure the request is coming from Google Sites
 app.use((req, res, next) => {
-  const origin = req.get('Origin') || 'No Origin'; // Get the origin header if present
-  const logMessage = `${req.method} ${req.originalUrl} - ${new Date().toISOString()} - Origin: ${origin}`;
-  console.log(logMessage);
-  next(); // Continue to the next middleware or route handler
+  const referer = req.get('Referer');
+  const allowedReferer = 'https://sites.google.com/hoboken.k12.nj.us/g0odgam3siteforsch0ol-unbl0ck/'; // Your Google Sites URL
+  
+  if (referer && referer.startsWith(allowedReferer)) {
+    next(); // Allow the request if the referer is from Google Sites
+  } else {
+    res.status(403).send('Access Denied'); // Deny access if the referer is not allowed
+  }
 });
 
 if (config.challenge !== false) {
