@@ -22,38 +22,6 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
-const ALLOWED_REFERER = "https://sites.google.com/hoboken.k12.nj.us/g0odgam3siteforsch0ol-unbl0ck/";
-
-// Log all incoming requests
-app.use((req, res, next) => {
-  const referer = req.get("Referer") || "No Referer";
-  const origin = req.get("Origin") || "No Origin";
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  console.log(`   ↳ Referer: ${referer}`);
-  console.log(`   ↳ Origin: ${origin}`);
-
-  // Restrict access to only iframe loads from Google Sites
-  if (referer !== ALLOWED_REFERER) {
-    console.log(chalk.red(`⛔ Access Denied! Invalid Referer: ${referer}`));
-    return res.status(403).send("Access Denied");
-  }
-
-  next();
-});
-
-// Detect injected iframes and external scripts
-app.use((req, res, next) => {
-  if (req.get("sec-fetch-dest") === "iframe") {
-    console.log(chalk.red(`🚨 Detected iframe embed: ${req.originalUrl}`));
-  }
-
-  if (req.get("referer") && !req.get("referer").includes(ALLOWED_REFERER)) {
-    console.log(chalk.red(`🚨 Possible external script detected: ${req.get("referer")}`));
-  }
-
-  next();
-});
-
 // Authentication if enabled
 if (config.challenge !== false) {
   console.log(chalk.green("🔒 Password protection enabled"));
@@ -87,18 +55,6 @@ routes.forEach((route) => {
     console.log(`📄 Serving page: ${route.file}`);
     res.sendFile(path.join(__dirname, "static", route.file));
   });
-});
-
-// Handle 404 errors
-app.use((req, res) => {
-  console.log(chalk.yellow(`⚠️ 404 Not Found: ${req.originalUrl}`));
-  res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
-});
-
-// Handle errors
-app.use((err, req, res, next) => {
-  console.error(chalk.red("❌ Error: "), err.stack);
-  res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
 // Proxy and caching for /e/* assets
@@ -160,6 +116,18 @@ app.get("/e/*", async (req, res, next) => {
     res.setHeader("Content-Type", "text/html");
     res.status(500).send("Error fetching the asset");
   }
+});
+
+// Handle iframe requests with query key
+const VALID_KEYS = new Set(["your-secret-key"]); // Replace with actual keys
+
+app.get("/fq", (req, res) => {
+  const key = req.query.key;
+  if (!VALID_KEYS.has(key)) {
+    return res.status(403).send("Access Denied: Invalid Key");
+  }
+
+  res.send("Iframe Request Successful!");
 });
 
 // Handle Bare server requests
