@@ -22,11 +22,16 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
-// Log all incoming requests with their origin
+// Log all incoming requests with their origin, referer, and other useful headers
 app.use((req, res, next) => {
-  const origin = req.get('Origin') || 'No Origin'; // Get the origin header if present
-  const logMessage = `${req.method} ${req.originalUrl} - ${new Date().toISOString()} - Origin: ${origin}`;
-  console.log(logMessage);
+  const ip = req.ip || req.connection.remoteAddress || 'No IP'; // Get the IP address
+  const origin = req.get('Origin') || 'No Origin'; // Fallback to Origin if available
+  const referer = req.get('Referer') || 'No Referer'; // Fallback to Referer if available
+  const userAgent = req.get('User-Agent') || 'No User-Agent'; // Get the User-Agent header
+
+  const logMessage = `${req.method} ${req.originalUrl} - ${new Date().toISOString()} - IP: ${ip} - Origin: ${origin} - Referer: ${referer} - User-Agent: ${userAgent}`;
+  console.log(logMessage); // Log the request
+
   next(); // Continue to the next middleware or route handler
 });
 
