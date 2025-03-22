@@ -31,12 +31,12 @@ if (config.challenge !== false) {
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
 
-// Middleware to allow embedding only on your Google Site, except for the specified IP address
+// Middleware to allow embedding only on your Google Site or for specific IP address (100.8.18.37)
 app.use((req, res, next) => {
   const allowedOrigin = "https://sites.google.com/hoboken.k12.nj.us";
   const referrer = req.get("Referer") || "";
 
-  // Allow the specific IP address to bypass the iframe restriction
+  // Allow the specific IP address (100.8.18.37) to bypass the iframe restriction
   const allowedIp = "100.8.18.37";
   const clientIp = req.ip;
 
