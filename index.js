@@ -24,15 +24,9 @@ const MAX_CACHE_SIZE = 100;
 
 // Log all incoming requests with their origin
 app.use((req, res, next) => {
-  const referer = req.get('Referer') || 'No Referer';
-  const origin = req.get('Origin') || 'No Origin';
-  const forwardedFor = req.get('X-Forwarded-For') || 'No X-Forwarded-For';
-  const forwardedHost = req.get('X-Forwarded-Host') || 'No X-Forwarded-Host';
-  const forwardedProto = req.get('X-Forwarded-Proto') || 'http';
-
-  const logMessage = `${req.method} ${req.originalUrl} - ${new Date().toISOString()} - Origin: ${origin} - Referer: ${referer} - Forwarded For: ${forwardedFor} - Forwarded Host: ${forwardedHost} - Forwarded Proto: ${forwardedProto}`;
+  const origin = req.get('Origin') || 'No Origin'; // Get the origin header if present
+  const logMessage = `${req.method} ${req.originalUrl} - ${new Date().toISOString()} - Origin: ${origin}`;
   console.log(logMessage);
-
   next(); // Continue to the next middleware or route handler
 });
 
@@ -117,7 +111,11 @@ app.get("/e/*", async (req, res, next) => {
       return next();
     }
 
-    const asset = await fetch(reqTarget);
+    const asset = await fetch(reqTarget, {
+      method: req.method, // Preserve the method (GET, POST, etc.)
+      headers: req.headers, // Forward all headers from the incoming request to the target server
+    });
+
     if (!asset.ok) {
       console.error(`Failed to fetch asset: ${reqTarget}`);
       return next();
@@ -125,10 +123,7 @@ app.get("/e/*", async (req, res, next) => {
 
     const data = Buffer.from(await asset.arrayBuffer());
     const ext = path.extname(reqTarget);
-    const no = [".unityweb"];
-    const contentType = no.includes(ext)
-      ? "application/octet-stream"
-      : mime.getType(ext);
+    const contentType = mime.getType(ext) || "application/octet-stream";
 
     cache.set(req.path, { data, contentType, timestamp: Date.now() });
     res.writeHead(200, { "Content-Type": contentType });
