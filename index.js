@@ -31,22 +31,19 @@ if (config.challenge !== false) {
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
 
-// Middleware to allow embedding only on your Google Site
+// Middleware to allow embedding only on your Google Site and allow specific IP address
 app.use((req, res, next) => {
-  res.setHeader(
-    "Content-Security-Policy",
-    "frame-ancestors 'self' https://sites.google.com/hoboken.k12.nj.us/g0odgam3siteforsch0ol-unbl0ck/"
-  );
-
-  // Block direct access if not inside an iframe from your site
   const allowedOrigin = "https://sites.google.com/hoboken.k12.nj.us";
   const referrer = req.get("Referer") || "";
+  const allowedIp = "100.8.18.37";
+  const clientIp = req.ip || req.connection.remoteAddress;
 
-  if (!referrer.startsWith(allowedOrigin)) {
+  // Check if request comes from the allowed IP or referrer
+  if (clientIp === allowedIp || referrer.startsWith(allowedOrigin)) {
+    next();
+  } else {
     return res.status(403).send("Access Denied");
   }
-
-  next();
 });
 
 app.get("/e/*", async (req, res, next) => {
