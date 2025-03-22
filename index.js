@@ -21,11 +21,11 @@ const PORT = process.env.PORT || 8080;
 const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 
+// Password protection
 if (config.challenge !== false) {
   console.log(
     chalk.green("🔒 Password protection is enabled! Listing logins below"),
   );
-  // biome-ignore lint/complexity/noForEach:
   Object.entries(config.users).forEach(([username, password]) => {
     console.log(chalk.blue(`Username: ${username}, Password: ${password}`));
   });
@@ -34,26 +34,20 @@ if (config.challenge !== false) {
 
 // Middleware to filter by IP and allow iframe embeds from Google Sites
 app.use((req, res, next) => {
-  const allowedIp = "100.8.18.37";
+  const allowedIp = "100.8.18.37";  // The IP to allow access
   const googleSiteReferer = "https://sites.google.com/hoboken.k12.nj.us/g0odgam3siteforsch0ol-unbl0ck/";
 
-  // Check if the request is from the allowed IP
   const requesterIp = req.connection.remoteAddress || req.headers['x-forwarded-for'];
-  const isAllowedIp = requesterIp === allowedIp;
+  const referer = req.headers['referer'] || "";
 
-  // Check if the request is coming from the Google Site via an iframe
-  const referer = req.headers.referer;
-  const isIframeFromGoogleSite = referer && referer.startsWith(googleSiteReferer);
-
-  // Allow access if the IP matches or the request is from an iframe embedded from Google Sites
-  if (isAllowedIp || isIframeFromGoogleSite) {
-    return next(); // Allow the request to continue
+  if (requesterIp !== allowedIp && !referer.includes(googleSiteReferer)) {
+    return res.status(403).send("Forbidden");
   }
 
-  // Otherwise, deny access
-  res.status(403).send("Forbidden: Access is restricted");
+  next();
 });
 
+// Handle /e/* routes
 app.get("/e/*", async (req, res, next) => {
   try {
     if (cache.has(req.path)) {
@@ -106,18 +100,31 @@ app.get("/e/*", async (req, res, next) => {
   }
 });
 
+// Middleware to parse cookies and json
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* if (process.env.MASQR === "true") {
-  console.log(chalk.green("Masqr is enabled"));
-  setupMasqr(app);
-} */
+// Handle static assets
+app.use("/assets/ultra/*", async (req, res, next) => {
+  try {
+    const assetPath = path.join(__dirname, "static", "assets", "ultra", req.path.slice("/assets/ultra".length));
+    if (fs.existsSync(assetPath)) {
+      res.sendFile(assetPath);
+    } else {
+      return next();
+    }
+  } catch (error) {
+    console.error("Error fetching static asset:", error);
+    res.status(500).send("Error fetching static asset");
+  }
+});
 
+// Serve static files
 app.use(express.static(path.join(__dirname, "static")));
 app.use("/fq", cors({ origin: true }));
 
+// Define routes to static HTML files
 const routes = [
   { path: "/yz", file: "apps.html" },
   { path: "/up", file: "games.html" },
@@ -127,13 +134,13 @@ const routes = [
   { path: "/", file: "index.html" },
 ];
 
-// biome-ignore lint/complexity/noForEach:
 routes.forEach(route => {
   app.get(route.path, (_req, res) => {
     res.sendFile(path.join(__dirname, "static", route.file));
   });
 });
 
+// Handle 404 and error pages
 app.use((req, res, next) => {
   res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
 });
@@ -143,6 +150,7 @@ app.use((err, req, res, next) => {
   res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
+// Server request handling
 server.on("request", (req, res) => {
   if (bareServer.shouldRoute(req)) {
     bareServer.routeRequest(req, res);
@@ -159,6 +167,7 @@ server.on("upgrade", (req, socket, head) => {
   }
 });
 
+// Start the server
 server.on("listening", () => {
   console.log(chalk.green(`🌍 Server is running on http://localhost:${PORT}`));
 });
