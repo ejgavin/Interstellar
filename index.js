@@ -22,8 +22,6 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
-const ALLOWED_REFERER = "https://sites.google.com/hoboken.k12.nj.us/g0odgam3siteforsch0ol-unbl0ck/";
-
 // Log all incoming requests
 app.use((req, res, next) => {
   const referer = req.get("Referer") || "No Referer";
@@ -31,13 +29,6 @@ app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   console.log(`   ↳ Referer: ${referer}`);
   console.log(`   ↳ Origin: ${origin}`);
-
-  // Restrict access to only iframe loads from Google Sites
-  if (referer !== ALLOWED_REFERER) {
-    console.log(chalk.red(`⛔ Access Denied! Invalid Referer: ${referer}`));
-    return res.status(403).send("Access Denied");
-  }
-
   next();
 });
 
