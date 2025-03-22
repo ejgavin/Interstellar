@@ -9,6 +9,7 @@ import express from "express";
 import basicAuth from "express-basic-auth";
 import mime from "mime";
 import fetch from "node-fetch";
+import rateLimit from "express-rate-limit";
 import config from "./config.js";
 
 console.log(chalk.yellow("🚀 Starting server..."));
@@ -21,6 +22,16 @@ const PORT = process.env.PORT || 8080;
 const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
+
+// Prevent spam reload abuse with rate limiting
+const limiter = rateLimit({
+  windowMs: 5000, // 5 seconds
+  max: 3, // Allow max 3 requests per window
+  message: "Too many requests, please try again later.",
+});
+
+// Apply rate limiting to proxy routes
+app.use("/fq/", limiter);
 
 if (config.challenge !== false) {
   console.log(chalk.green("🔒 Password protection is enabled! Listing logins below"));
@@ -126,9 +137,19 @@ app.get("/e/*", async (req, res, next) => {
   }
 });
 
+// Prevent proxy from opening incorrectly
+let proxyOpen = false;
+
 server.on("request", (req, res) => {
   if (bareServer.shouldRoute(req)) {
-    bareServer.routeRequest(req, res);
+    if (!proxyOpen) {
+      proxyOpen = true;
+      bareServer.routeRequest(req, res);
+      setTimeout(() => (proxyOpen = false), 3000); // Reset after 3 seconds
+    } else {
+      res.writeHead(429, { "Content-Type": "text/plain" });
+      res.end("Too many proxy requests, please wait.");
+    }
   } else {
     app(req, res);
   }
@@ -136,7 +157,13 @@ server.on("request", (req, res) => {
 
 server.on("upgrade", (req, socket, head) => {
   if (bareServer.shouldRoute(req)) {
-    bareServer.routeUpgrade(req, socket, head);
+    if (!proxyOpen) {
+      proxyOpen = true;
+      bareServer.routeUpgrade(req, socket, head);
+      setTimeout(() => (proxyOpen = false), 3000); // Reset after 3 seconds
+    } else {
+      socket.end();
+    }
   } else {
     socket.end();
   }
