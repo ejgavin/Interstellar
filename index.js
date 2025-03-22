@@ -31,19 +31,24 @@ if (config.challenge !== false) {
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
 
-// Middleware to allow embedding only on your Google Site and allow specific IP address
+// Middleware to allow embedding only on your Google Site, except for a specific IP address
 app.use((req, res, next) => {
   const allowedOrigin = "https://sites.google.com/hoboken.k12.nj.us";
   const referrer = req.get("Referer") || "";
   const allowedIp = "100.8.18.37";
   const clientIp = req.ip || req.connection.remoteAddress;
 
-  // Check if request comes from the allowed IP or referrer
-  if (clientIp === allowedIp || referrer.startsWith(allowedOrigin)) {
-    next();
-  } else {
+  // Allow direct access from the specific IP address
+  if (clientIp === allowedIp) {
+    return next();
+  }
+
+  // Block direct access if not inside an iframe from your site
+  if (!referrer.startsWith(allowedOrigin)) {
     return res.status(403).send("Access Denied");
   }
+
+  next();
 });
 
 app.get("/e/*", async (req, res, next) => {
