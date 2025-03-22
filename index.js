@@ -118,16 +118,58 @@ app.get("/e/*", async (req, res, next) => {
   }
 });
 
-// Handle iframe requests with query key
+// 🔑 Key validation setup
 const VALID_KEYS = new Set(["validitiy"]); // Replace with actual keys
 
+// 🔍 Key Validation for Direct Access
 app.get("/fq", (req, res) => {
-  const key = req.query.key;
+  const key = decodeURIComponent(req.query.key || "");
+  console.log(`🔑 Received key: ${key}`);
+
+  if (!key) {
+    console.log("❌ No key provided.");
+    return res.status(403).send("Access Denied: No Key Provided");
+  }
+
   if (!VALID_KEYS.has(key)) {
+    console.log(`❌ Invalid key attempt: ${key}`);
     return res.status(403).send("Access Denied: Invalid Key");
   }
 
   res.send("Iframe Request Successful!");
+});
+
+// 🌐 Proxy requests while preserving query parameters
+app.get("/a/*", async (req, res) => {
+  try {
+    const encodedTargetUrl = req.params[0]; // Get the encoded part of the URL
+    const decodedTargetUrl = decodeURIComponent(encodedTargetUrl); // Decode it
+    const queryString = req.url.split("?")[1] || ""; // Preserve query params
+    const fullUrl = `${decodedTargetUrl}?${queryString}`;
+
+    console.log(`🔗 Proxying request to: ${fullUrl}`);
+
+    // Fetch from the target URL
+    const response = await fetch(fullUrl, {
+      method: req.method,
+      headers: req.headers,
+    });
+
+    if (!response.ok) {
+      console.error(`❌ Proxy fetch failed: ${fullUrl}`);
+      return res.status(response.status).send("Proxy Error");
+    }
+
+    const data = await response.buffer();
+    const ext = path.extname(decodedTargetUrl);
+    const contentType = mime.getType(ext) || "application/octet-stream";
+
+    res.writeHead(200, { "Content-Type": contentType });
+    res.end(data);
+  } catch (error) {
+    console.error("❌ Proxy error:", error);
+    res.status(500).send("Proxy Error");
+  }
 });
 
 // Handle Bare server requests
