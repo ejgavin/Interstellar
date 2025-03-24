@@ -33,12 +33,14 @@ function formatTimeEST(date) {
 
 // Log all incoming requests with their full URL and client details
 app.use((req, res, next) => {
-  const currentTime = formatTimeEST(new Date());
+  const currentTime = formatTimeEST(new Date()); // Ensure the date is being passed here
   const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`; // Full URL that the user requested
   const clientDetails = req.get('User-Agent') || 'Unknown client'; // User-Agent of the client accessing the site
   
+  // Log message with the current time
   const logMessage = `[${currentTime}] - Accessed: ${fullUrl} - Client: ${clientDetails}`;
-  console.log(logMessage); // Log the full URL and client details
+  console.log(logMessage);
+
   next(); // Continue to the next middleware or route handler
 });
 
