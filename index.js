@@ -38,7 +38,7 @@ app.use((req, res, next) => {
   const clientDetails = req.get('User-Agent') || 'Unknown client'; // User-Agent of the client accessing the site
   
   const logMessage = `[${currentTime}] - Accessed: ${fullUrl} - Client: ${clientDetails}`;
-  console.log(logMessage);
+  console.log(logMessage); // Log the full URL and client details
   next(); // Continue to the next middleware or route handler
 });
 
