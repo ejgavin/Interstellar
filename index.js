@@ -11,8 +11,6 @@ import mime from "mime";
 import fetch from "node-fetch";
 import config from "./config.js";
 
-console.log(chalk.yellow("🚀 Starting server..."));
-
 const __dirname = process.cwd();
 const server = http.createServer();
 const app = express();
@@ -22,19 +20,15 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
-// Log all incoming requests with their origin
+// Log exact time and user agent when a request is made
 app.use((req, res, next) => {
-  const origin = req.get('Origin') || 'No Origin'; // Get the origin header if present
-  const logMessage = ${req.method} ${req.originalUrl} - ${new Date().toISOString()} - Origin: ${origin};
-  console.log(logMessage);
-  next(); // Continue to the next middleware or route handler
+  const timestamp = new Date().toISOString();
+  const userAgent = req.get("User-Agent") || "Unknown";
+  console.log(`[${timestamp}] Accessed: ${req.method} ${req.originalUrl} | User-Agent: ${userAgent}`);
+  next();
 });
 
 if (config.challenge !== false) {
-  console.log(chalk.green("🔒 Password protection is enabled! Listing logins below"));
-  Object.entries(config.users).forEach(([username, password]) => {
-    console.log(chalk.blue(Username: ${username}, Password: ${password}));
-  });
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
 
@@ -47,7 +41,6 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Handle static files and routes
 app.use(express.static(path.join(__dirname, "static")));
 app.use("/fq", cors({ origin: true }));
 
@@ -67,20 +60,17 @@ routes.forEach((route) => {
 });
 
 app.use((req, res, next) => {
-  console.log(404: ${req.originalUrl});
   res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
 app.use((err, req, res, next) => {
-  console.error(err.stack);
   res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
-// Handle /e/* route with caching and proxying
 app.get("/e/*", async (req, res, next) => {
   try {
     if (cache.size > MAX_CACHE_SIZE) {
-      cache.clear(); // Clear cache if it's too big
+      cache.clear();
     }
 
     if (cache.has(req.path)) {
@@ -112,12 +102,11 @@ app.get("/e/*", async (req, res, next) => {
     }
 
     const asset = await fetch(reqTarget, {
-      method: req.method, // Preserve the method (GET, POST, etc.)
-      headers: req.headers, // Forward all headers from the incoming request to the target server
+      method: req.method,
+      headers: req.headers,
     });
 
     if (!asset.ok) {
-      console.error(Failed to fetch asset: ${reqTarget});
       return next();
     }
 
@@ -129,7 +118,6 @@ app.get("/e/*", async (req, res, next) => {
     res.writeHead(200, { "Content-Type": contentType });
     res.end(data);
   } catch (error) {
-    console.error("Error fetching asset:", error);
     res.setHeader("Content-Type", "text/html");
     res.status(500).send("Error fetching the asset");
   }
@@ -149,10 +137,6 @@ server.on("upgrade", (req, socket, head) => {
   } else {
     socket.end();
   }
-});
-
-server.on("listening", () => {
-  console.log(chalk.green(🌍 Server is running on http://localhost:${PORT}));
 });
 
 server.listen({ port: PORT });
