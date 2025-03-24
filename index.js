@@ -20,11 +20,29 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
+// Function to format time in 12-hour format with AM/PM
+function formatTime(date) {
+  let hours = date.getHours();
+  let minutes = date.getMinutes();
+  let seconds = date.getSeconds();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12; // Convert 0 to 12 for AM format
+  minutes = minutes.toString().padStart(2, "0");
+  seconds = seconds.toString().padStart(2, "0");
+  return `${hours}:${minutes}:${seconds} ${ampm}`;
+}
+
 // Log exact time and user agent when a request is made
 app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
+  const now = new Date();
+  const formattedTime = formatTime(now);
+  const formattedDate = now.toLocaleDateString("en-US");
   const userAgent = req.get("User-Agent") || "Unknown";
-  console.log(`[${timestamp}] Accessed: ${req.method} ${req.originalUrl} | User-Agent: ${userAgent}`);
+
+  // Extract the accessed proxy link instead of file path
+  const fullUrl = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+
+  console.log(`[${formattedDate} ${formattedTime}] Accessed: ${fullUrl} | User-Agent: ${userAgent}`);
   next();
 });
 
