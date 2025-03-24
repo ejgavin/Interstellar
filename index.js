@@ -20,7 +20,7 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
-// Function to format time in 12-hour format with AM/PM
+// Function to format time in 12-hour format with AM/PM in EST
 function formatTime(date) {
   let hours = date.getHours();
   let minutes = date.getMinutes();
@@ -35,8 +35,10 @@ function formatTime(date) {
 // Log exact time and user agent when a request is made
 app.use((req, res, next) => {
   const now = new Date();
-  const formattedTime = formatTime(now);
-  const formattedDate = now.toLocaleDateString("en-US");
+  // Convert to Eastern Standard Time (EST)
+  const estDate = now.toLocaleString("en-US", { timeZone: "America/New_York" });
+  const formattedTime = formatTime(new Date(estDate));
+  const formattedDate = new Date(estDate).toLocaleDateString("en-US");
   const userAgent = req.get("User-Agent") || "Unknown";
 
   // Only log the time and user agent, not the full URL
