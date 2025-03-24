@@ -20,33 +20,33 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
-// Function to format time in 12-hour format with AM/PM
-function formatTime(date) {
-  let hours = date.getHours();
-  let minutes = date.getMinutes();
-  let seconds = date.getSeconds();
-  const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12 || 12; // Convert 0 to 12 for AM format
-  minutes = minutes.toString().padStart(2, "0");
-  seconds = seconds.toString().padStart(2, "0");
-  return `${hours}:${minutes}:${seconds} ${ampm}`;
+// Function to format time in 12-hour format with AM/PM (EST)
+function formatTimeEST(date) {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZone: "America/New_York"
+  }).format(date);
 }
 
-// Log exact time and user agent when a request is made
+// Log all incoming requests with their full URL and client details
 app.use((req, res, next) => {
-  const now = new Date();
-  const formattedTime = formatTime(now);
-  const formattedDate = now.toLocaleDateString("en-US");
-  const userAgent = req.get("User-Agent") || "Unknown";
-
-  // Extract the accessed proxy link instead of file path
-  const fullUrl = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
-
-  console.log(`[${formattedDate} ${formattedTime}] Accessed: ${fullUrl} | User-Agent: ${userAgent}`);
-  next();
+  const currentTime = formatTimeEST(new Date());
+  const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`; // Full URL that the user requested
+  const clientDetails = req.get('User-Agent') || 'Unknown client'; // User-Agent of the client accessing the site
+  
+  const logMessage = `[${currentTime}] - Accessed: ${fullUrl} - Client: ${clientDetails}`;
+  console.log(logMessage);
+  next(); // Continue to the next middleware or route handler
 });
 
 if (config.challenge !== false) {
+  console.log(chalk.green("🔒 Password protection is enabled! Listing logins below"));
+  Object.entries(config.users).forEach(([username, password]) => {
+    console.log(chalk.blue(`Username: ${username}, Password: ${password}`));
+  });
   app.use(basicAuth({ users: config.users, challenge: true }));
 }
 
@@ -59,6 +59,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Handle static files and routes
 app.use(express.static(path.join(__dirname, "static")));
 app.use("/fq", cors({ origin: true }));
 
@@ -78,17 +79,20 @@ routes.forEach((route) => {
 });
 
 app.use((req, res, next) => {
+  console.log(`404: ${req.originalUrl}`);
   res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
 app.use((err, req, res, next) => {
+  console.error(err.stack);
   res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
+// Handle /e/* route with caching and proxying
 app.get("/e/*", async (req, res, next) => {
   try {
     if (cache.size > MAX_CACHE_SIZE) {
-      cache.clear();
+      cache.clear(); // Clear cache if it's too big
     }
 
     if (cache.has(req.path)) {
@@ -120,11 +124,12 @@ app.get("/e/*", async (req, res, next) => {
     }
 
     const asset = await fetch(reqTarget, {
-      method: req.method,
-      headers: req.headers,
+      method: req.method, // Preserve the method (GET, POST, etc.)
+      headers: req.headers, // Forward all headers from the incoming request to the target server
     });
 
     if (!asset.ok) {
+      console.error(`Failed to fetch asset: ${reqTarget}`);
       return next();
     }
 
@@ -136,6 +141,7 @@ app.get("/e/*", async (req, res, next) => {
     res.writeHead(200, { "Content-Type": contentType });
     res.end(data);
   } catch (error) {
+    console.error("Error fetching asset:", error);
     res.setHeader("Content-Type", "text/html");
     res.status(500).send("Error fetching the asset");
   }
@@ -155,6 +161,10 @@ server.on("upgrade", (req, socket, head) => {
   } else {
     socket.end();
   }
+});
+
+server.on("listening", () => {
+  console.log(chalk.green(`🌍 Server is running on http://localhost:${PORT}`));
 });
 
 server.listen({ port: PORT });
