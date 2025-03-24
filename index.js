@@ -22,6 +22,25 @@ const cache = new Map();
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // Cache for 30 Days
 const MAX_CACHE_SIZE = 100;
 
+const ALLOWED_REFERER = "https://sites.google.com/hoboken.k12.nj.us/g0odgam3siteforsch0ol-unbl0ck/";
+
+// Log all incoming requests
+app.use((req, res, next) => {
+  const referer = req.get("Referer") || "No Referer";
+  const origin = req.get("Origin") || "No Origin";
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  console.log(`   ↳ Referer: ${referer}`);
+  console.log(`   ↳ Origin: ${origin}`);
+
+  // Restrict access to only iframe loads from Google Sites
+  if (referer !== ALLOWED_REFERER) {
+    console.log(chalk.red(`⛔ Access Denied! Invalid Referer: ${referer}`));
+    return res.status(403).send("Access Denied");
+  }
+
+  next();
+});
+
 // Authentication if enabled
 if (config.challenge !== false) {
   console.log(chalk.green("🔒 Password protection enabled"));
@@ -55,6 +74,18 @@ routes.forEach((route) => {
     console.log(`📄 Serving page: ${route.file}`);
     res.sendFile(path.join(__dirname, "static", route.file));
   });
+});
+
+// Handle 404 errors
+app.use((req, res) => {
+  console.log(chalk.yellow(`⚠️ 404 Not Found: ${req.originalUrl}`));
+  res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
+});
+
+// Handle errors
+app.use((err, req, res, next) => {
+  console.error(chalk.red("❌ Error: "), err.stack);
+  res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
 // Proxy and caching for /e/* assets
@@ -115,60 +146,6 @@ app.get("/e/*", async (req, res, next) => {
     console.error("❌ Error fetching asset:", error);
     res.setHeader("Content-Type", "text/html");
     res.status(500).send("Error fetching the asset");
-  }
-});
-
-// 🔑 Key validation setup
-const VALID_KEYS = new Set(["validitiy"]); // Replace with actual keys
-
-// 🔍 Key Validation for Direct Access
-app.get("/fq", (req, res) => {
-  const key = decodeURIComponent(req.query.key || "");
-  console.log(`🔑 Received key: ${key}`);
-
-  if (!key) {
-    console.log("❌ No key provided.");
-    return res.status(403).send("Access Denied: No Key Provided");
-  }
-
-  if (!VALID_KEYS.has(key)) {
-    console.log(`❌ Invalid key attempt: ${key}`);
-    return res.status(403).send("Access Denied: Invalid Key");
-  }
-
-  res.send("Iframe Request Successful!");
-});
-
-// 🌐 Proxy requests while preserving query parameters
-app.get("/a/*", async (req, res) => {
-  try {
-    const encodedTargetUrl = req.params[0]; // Get the encoded part of the URL
-    const decodedTargetUrl = decodeURIComponent(encodedTargetUrl); // Decode it
-    const queryString = req.url.split("?")[1] || ""; // Preserve query params
-    const fullUrl = `${decodedTargetUrl}?${queryString}`;
-
-    console.log(`🔗 Proxying request to: ${fullUrl}`);
-
-    // Fetch from the target URL
-    const response = await fetch(fullUrl, {
-      method: req.method,
-      headers: req.headers,
-    });
-
-    if (!response.ok) {
-      console.error(`❌ Proxy fetch failed: ${fullUrl}`);
-      return res.status(response.status).send("Proxy Error");
-    }
-
-    const data = await response.buffer();
-    const ext = path.extname(decodedTargetUrl);
-    const contentType = mime.getType(ext) || "application/octet-stream";
-
-    res.writeHead(200, { "Content-Type": contentType });
-    res.end(data);
-  } catch (error) {
-    console.error("❌ Proxy error:", error);
-    res.status(500).send("Proxy Error");
   }
 });
 
