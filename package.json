@@ -24,6 +24,7 @@
     "express-basic-auth": "^1.2.1",
     "mime": "^4.0.4",
     "node-fetch": "^3.3.2"
+    "@vercel/analytics": "^1.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4"
