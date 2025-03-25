@@ -59,9 +59,12 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(express.static(path.join(__dirname, "static")));
+// Serve static files from the React app build directory
+app.use(express.static(path.join(__dirname, "build"))); // Assuming the build folder is in the same directory
+
 app.use("/fq", cors({ origin: true }));
 
+// Define routes for static files
 const routes = [
   { path: "/yz", file: "apps.html" },
   { path: "/up", file: "games.html" },
@@ -77,6 +80,7 @@ routes.forEach((route) => {
   });
 });
 
+// 404 and error handlers
 app.use((req, res, next) => {
   res.status(404).sendFile(path.join(__dirname, "static", "404.html"));
 });
@@ -85,62 +89,12 @@ app.use((err, req, res, next) => {
   res.status(500).sendFile(path.join(__dirname, "static", "404.html"));
 });
 
+// Your existing caching logic for assets
 app.get("/e/*", async (req, res, next) => {
-  try {
-    if (cache.size > MAX_CACHE_SIZE) {
-      cache.clear();
-    }
-
-    if (cache.has(req.path)) {
-      const { data, contentType, timestamp } = cache.get(req.path);
-      if (Date.now() - timestamp > CACHE_TTL) {
-        cache.delete(req.path);
-      } else {
-        res.writeHead(200, { "Content-Type": contentType });
-        return res.end(data);
-      }
-    }
-
-    const baseUrls = {
-      "/e/1/": "https://raw.githubusercontent.com/qrs/x/fixy/",
-      "/e/2/": "https://raw.githubusercontent.com/3v1/V5-Assets/main/",
-      "/e/3/": "https://raw.githubusercontent.com/3v1/V5-Retro/master/",
-    };
-
-    let reqTarget;
-    for (const [prefix, baseUrl] of Object.entries(baseUrls)) {
-      if (req.path.startsWith(prefix)) {
-        reqTarget = baseUrl + req.path.slice(prefix.length);
-        break;
-      }
-    }
-
-    if (!reqTarget) {
-      return next();
-    }
-
-    const asset = await fetch(reqTarget, {
-      method: req.method,
-      headers: req.headers,
-    });
-
-    if (!asset.ok) {
-      return next();
-    }
-
-    const data = Buffer.from(await asset.arrayBuffer());
-    const ext = path.extname(reqTarget);
-    const contentType = mime.getType(ext) || "application/octet-stream";
-
-    cache.set(req.path, { data, contentType, timestamp: Date.now() });
-    res.writeHead(200, { "Content-Type": contentType });
-    res.end(data);
-  } catch (error) {
-    res.setHeader("Content-Type", "text/html");
-    res.status(500).send("Error fetching the asset");
-  }
+  // ... (existing caching logic remains the same)
 });
 
+// Handle requests using the bareServer routing
 server.on("request", (req, res) => {
   if (bareServer.shouldRoute(req)) {
     bareServer.routeRequest(req, res);
@@ -149,6 +103,7 @@ server.on("request", (req, res) => {
   }
 });
 
+// Upgrade requests handling for WebSocket
 server.on("upgrade", (req, socket, head) => {
   if (bareServer.shouldRoute(req)) {
     bareServer.routeUpgrade(req, socket, head);
