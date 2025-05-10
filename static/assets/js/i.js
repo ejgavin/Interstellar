@@ -2,6 +2,22 @@ window.addEventListener("load", () => {
   navigator.serviceWorker.register("../sw.js?v=10-02-2024", {
     scope: "/a/",
   });
+
+  // Check if not on Chromebook and block access
+  const allowedAgents = [
+    "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+  ];
+  const ua = navigator.userAgent;
+  const blocker = document.getElementById("blocker");
+  if (!allowedAgents.includes(ua) && blocker) {
+    blocker.style.display = "flex";
+  }
+
+  // Lock Escape key on resize
+  if (navigator.keyboard && navigator.keyboard.lock) {
+    navigator.keyboard.lock(["Escape"]);
+  }
 });
 
 const form = document.getElementById("fv");
@@ -17,6 +33,7 @@ if (form && input) {
     }
   });
 }
+
 function processUrl(value, path) {
   let url = value.trim();
   const engine = localStorage.getItem("engine");
@@ -53,11 +70,8 @@ function dy(value) {
 }
 
 function isUrl(val = "") {
-  if (
+  return (
     /^http(s?):\/\//.test(val) ||
     (val.includes(".") && val.substr(0, 1) !== " ")
-  ) {
-    return true;
-  }
-  return false;
+  );
 }
