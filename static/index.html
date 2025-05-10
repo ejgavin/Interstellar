@@ -12,13 +12,38 @@
     <link rel="stylesheet" href="/assets/css/nav.css?v=01" />
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6840529569014734"
      crossorigin="anonymous"></script>
+    <style>
+      #blocker {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.95);
+        color: white;
+        font-size: 24px;
+        z-index: 9999;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 30px;
+        text-align: center;
+      }
+
+      #blocker p {
+        margin-bottom: 20px;
+      }
+    </style>
   </head>
   <body class="center" onload="SplashT">
+    <div id="blocker">
+      <p><strong>Sorry!</strong> You must be on a Chromebook to use this.</p>
+      <p>Also, if you're a teacher, please don't report this lol.</p>
+    </div>
+
     <div class="f-nav"></div>
     <div id="particles-js">
       <script rel="preload" src="https://cdn.jsdelivr.net/particles.js/2.0.0/"></script>
       <div class="main">
-<h1 class="title">&#73;&#110;&#116;&#101;&#114;&#115;&#116;&#101;&#108;&#108;&#97;&#114;</h1>
+        <h1 class="title">&#73;&#110;&#116;&#101;&#114;&#115;&#116;&#101;&#108;&#108;&#97;&#114;</h1>
         <p id="splash"></p>
         <div class="search-container">
           <form id="fv" method="POST">
@@ -45,9 +70,24 @@
         dataLayer.push(arguments)
       }
       gtag("js", new Date())
-
       gtag("config", "G-WKJQ5QHQTJ")
     </script>
-    <!-- DO NOT REMOVE-->
+
+    <script>
+      const allowedAgents = [
+        "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+      ];
+
+      const ua = navigator.userAgent;
+
+      window.onload = () => {
+        if (allowedAgents.includes(ua)) {
+          document.getElementById("blocker").style.display = "none"; // Hide blocker
+        } else {
+          document.getElementById("blocker").style.display = "flex"; // Show blocker
+        }
+      };
+    </script>
   </body>
 </html>
