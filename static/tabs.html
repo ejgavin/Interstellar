@@ -29,7 +29,7 @@
         margin-bottom: 20px;
       }
     </style>
-    <script src="assets/js/f.js"></script>
+    <script src="/assets/js/f.js"></script>
     <script>
       window.addEventListener("resize", () => {
         if (navigator.keyboard && navigator.keyboard.lock) {
@@ -43,10 +43,15 @@
       ];
 
       window.onload = () => {
-        const ua = navigator.userAgent;
-        const blocker = document.getElementById("blocker");
-        if (!allowedAgents.includes(ua)) {
-          blocker.style.display = "flex";
+        try {
+          const ua = navigator.userAgent;
+          const blocker = document.getElementById("blocker");
+          if (!blocker) return;
+          if (!allowedAgents.includes(ua)) {
+            blocker.style.display = "flex";
+          }
+        } catch (e) {
+          console.error("Error in user agent check:", e);
         }
       };
     </script>
@@ -63,6 +68,7 @@
         <i class="fa-solid fa-plus"></i>
       </button>
     </nav>
+
     <div class="nav-bar">
       <div class="nav-container">
         <div class="nav-left">
@@ -130,16 +136,16 @@
         </div>
       </div>
     </div>
+
     <div class="frame-container" id="frame-container"></div>
-    <script src="assets/js/t.js?v=03"></script>
-    <script src="./assets/ultra/bundle.js?v=10-02-2024"></script>
-    <script src="./assets/ultra/config.js?v=10-02-2024"></script>
+
+    <script src="/assets/js/t.js?v=03"></script>
+    <script src="/assets/ultra/bundle.js?v=10-02-2024"></script>
+    <script src="/assets/ultra/config.js?v=10-02-2024"></script>
     <script src="/assets/js/m.js?v=08"></script>
+
     <!-- DO NOT REMOVE -->
-    <script
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=G-WKJQ5QHQTJ"
-    ></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-WKJQ5QHQTJ"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag() {
